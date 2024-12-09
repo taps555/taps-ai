@@ -1,14 +1,15 @@
 package main
 
 import (
+	"encoding/csv"
 	"encoding/gob"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 
 	"a21hc3NpZ25tZW50/model"
 	"a21hc3NpZ25tZW50/service"
@@ -20,12 +21,12 @@ import (
 )
 
 // Initialize the services
-var fileService = &service.FileService{}
 var aiService = &service.AIService{Client: &http.Client{}}
 // Gunakan nama kunci yang lebih deskriptif untuk sesi.
 var store = sessions.NewCookieStore([]byte("super-secret-key"))	
+var fileService = &service.FileService{}
 
-// Fungsi untuk mendapatkan sesi
+
 func getSession(r *http.Request) *sessions.Session {
 	session, err := store.Get(r, "super-secret-key")	
 	if err != nil {
@@ -56,39 +57,94 @@ func getSessionData(r *http.Request) (map[string][]string, error) {
 	}
 	return session.Values["table"].(map[string][]string), nil
 }
+// Pastikan package strings diimport
 
-func processTableData(table map[string][]string) (model.TapasResponse, error) {
-	// Misalnya kita akan menghitung total energi berdasarkan "Appliance"
-	applianceEnergy := make(map[string]float64)
-	for i := 0; i < len(table["Appliance"]); i++ {
-		appliance := table["Appliance"][i]
-		energyConsumption, err := strconv.ParseFloat(table["Energy_Consumption"][i], 64)
-		if err != nil {
-			return model.TapasResponse{}, fmt.Errorf("error parsing energy consumption: %v", err)
-		}
 
-		// Menjumlahkan energi per appliance
-		applianceEnergy[appliance] += energyConsumption
-	}
+// Pastikan package strings diimport
 
-	// Menyiapkan hasil yang akan dikembalikan
-	answer := "Total konsumsi energi perangkat:"
-	var coordinates [][]int
-	var cells []string
-	var aggregator = "SUM"
-	
-	// Mengonversi data ke format yang diinginkan untuk respons
-	for appliance, totalEnergy := range applianceEnergy {
-		answer += fmt.Sprintf(" %s: %.2f kWh.", appliance, totalEnergy)
-	}
 
-	return model.TapasResponse{
-		Answer:      answer,
-		Coordinates: coordinates, // Bisa ditambahkan logika jika perlu koordinat spesifik
-		Cells:       cells,       // Daftar sel jika diperlukan
-		Aggregator:  aggregator,
-	}, nil
+
+func processTableData(table map[string][]string, question string) (model.TapasResponse, error) {
+    var answer string
+    applianceEnergy := make(map[string]float64)
+
+    // Menampilkan seluruh data perangkat dalam CSV untuk debugging
+    log.Println("Data perangkat yang terdeteksi:")
+    for i, appliance := range table["Appliance"] {
+        log.Printf("Perangkat %d: %s\n", i+1, appliance)
+    }
+
+    // Membuat pertanyaan menjadi lowercase untuk mempermudah pencocokan
+    questionLower := strings.ToLower(question)
+
+    // Menangani pertanyaan tentang total energi untuk perangkat tertentu
+    if strings.Contains(questionLower, "total energi") {
+        // Menentukan perangkat yang disebutkan dalam pertanyaan
+        var applianceQuery string
+        if strings.Contains(questionLower, "ac") {
+            applianceQuery = "AC"
+        } else if strings.Contains(questionLower, "tv") {
+            applianceQuery = "TV"
+        } else if strings.Contains(questionLower, "evcar") {
+            applianceQuery = "EVCar"
+        } else if strings.Contains(questionLower, "refrigerator") {
+            applianceQuery = "Refrigerator"
+        }
+
+        // Tambahkan log untuk memastikan nama perangkat yang diminta
+        log.Printf("Mencari perangkat: %s\n", applianceQuery)
+
+        // Jika ditemukan perangkat dalam pertanyaan, hitung konsumsi energi untuk perangkat itu
+        if applianceQuery != "" {
+            found := false
+            // Periksa apakah perangkat ada dalam tabel
+            for i := 0; i < len(table["Appliance"]); i++ {
+                appliance := table["Appliance"][i]
+                appliance = strings.TrimSpace(appliance)
+                applianceLower := strings.ToLower(appliance) // Membandingkan dalam lowercase
+
+                log.Printf("Perangkat dalam data (Lowercase): %s\n", applianceLower) // Debug: Log perangkat yang ada di data
+
+                // Periksa jika perangkat dalam tabel sesuai dengan perangkat dalam pertanyaan (case insensitive)
+                if applianceLower == applianceQuery {
+                    found = true
+                    // Hanya hitung energi untuk perangkat yang sama satu kali
+                    if _, exists := applianceEnergy[appliance]; !exists {
+                        energyConsumption, err := strconv.ParseFloat(table["Energy_Consumption"][i], 64)
+                        if err != nil {
+                            return model.TapasResponse{}, fmt.Errorf("error parsing energy consumption: %v", err)
+                        }
+                        applianceEnergy[appliance] += energyConsumption
+                    }
+                }
+            }
+
+            // Menyiapkan jawaban berdasarkan perangkat yang ditemukan
+            if found {
+                answer = fmt.Sprintf("%s: %.2f kWh.", applianceQuery, applianceEnergy[applianceQuery])
+            } else {
+                answer = fmt.Sprintf("Perangkat %s tidak ditemukan dalam data.", applianceQuery)
+            }
+        } else {
+            answer = "Perangkat yang diminta tidak dikenali dalam pertanyaan."
+        }
+    } else {
+        answer = "Pertanyaan tidak dikenali. Coba tanya tentang total energi perangkat."
+    }
+
+    return model.TapasResponse{
+        Answer:      answer,
+        Coordinates: nil,
+        Cells:       nil,
+        Aggregator:  "SUM",
+    }, nil
 }
+
+
+
+
+
+
 
 
 
@@ -112,61 +168,68 @@ func main() {
 	router := mux.NewRouter()
 
 	router.HandleFunc("/upload", func(w http.ResponseWriter, r *http.Request) {
-		// Ambil sesi pengguna
-		session := getSession(r)
-		log.Println("Table from session:", session)
+		r.Body = http.MaxBytesReader(w, r.Body, 10<<20) // Batasi ukuran file 10 MB
 	
-		// Tentukan pengaturan sesi
-		store.Options = &sessions.Options{
-			Path:     "/",
-			MaxAge:   3600,
-			HttpOnly: true,
-			SameSite: http.SameSiteNoneMode,
-			Secure:   false, // Nonaktifkan Secure untuk pengujian lokal
-		}
-
-		var input struct {
-			Question string `json:"question"`
-		}
-		if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
-			http.Error(w, "Invalid request body", http.StatusBadRequest)
+		// Parsing form multipart
+		err := r.ParseMultipartForm(10 << 20) // 10 MB
+		if err != nil {
+			http.Error(w, "Unable to parse form data", http.StatusBadRequest)
 			return
 		}
 	
-		// Parse file yang diunggah
-		file, _, err := r.FormFile("file")
+		// Ambil file yang diunggah
+		file, handler, err := r.FormFile("file")
 		if err != nil {
 			http.Error(w, "Gagal membaca file yang diunggah", http.StatusBadRequest)
 			return
 		}
 		defer file.Close()
 	
-		// Membaca konten file
-		fileContent, err := io.ReadAll(file)
-		if err != nil {
-			http.Error(w, "Gagal membaca isi file", http.StatusInternalServerError)
-			return
-		}
-
-
+		log.Printf("Uploaded File Name: %s\n", handler.Filename)
+		log.Printf("Uploaded File Size: %d\n", handler.Size)
 	
-		// log.Println("File content:", fileContent)
-	
-		// Proses file menjadi tabel
-		table, err := fileService.ProcessFile(string(fileContent))
+		// Baca file CSV menggunakan csv.NewReader
+		reader := csv.NewReader(file)
+		records, err := reader.ReadAll() // Baca seluruh isi file CSV
 		if err != nil {
-			http.Error(w, "Gagal memproses file: "+err.Error(), http.StatusBadRequest)
+			log.Printf("Error reading CSV file: %v\n", err)
+			http.Error(w, "Invalid CSV file", http.StatusBadRequest)
 			return
 		}
 	
-		// Simpan tabel dalam sesi
+		// Proses data CSV menjadi tabel JSON
+		table := make(map[string][]string)
+		headers := records[0] // Baris pertama sebagai header
+		for _, row := range records[1:] {
+			for i, value := range row {
+				table[headers[i]] = append(table[headers[i]], value)
+			}
+		}
+	
+		// Simpan tabel ke sesi
 		if err := saveSessionData(w, r, table); err != nil {
 			log.Printf("Error saving session data: %v\n", err)
 			http.Error(w, "Gagal menyimpan data ke sesi", http.StatusInternalServerError)
 			return
 		}
 	
-		// Ambil data tabel dari sesi menggunakan getSessionData
+		// Ambil pertanyaan dari form
+		question := r.FormValue("question")
+		if question == "" {
+			http.Error(w, "Pertanyaan tidak boleh kosong", http.StatusBadRequest)
+			return
+		}
+	
+		// Simpan pertanyaan dalam sesi
+		session := getSession(r)
+		session.Values["question"] = question
+		err = session.Save(r, w)
+		if err != nil {
+			http.Error(w, "Gagal menyimpan pertanyaan ke sesi", http.StatusInternalServerError)
+			return
+		}
+	
+		// Ambil data tabel dari sesi
 		sessionTable, err := getSessionData(r)
 		if err != nil {
 			log.Printf("Error retrieving session data: %v\n", err)
@@ -174,32 +237,30 @@ func main() {
 			return
 		}
 	
-		// Proses data tabel dan siapkan format respons
-		tapasResponse, err := processTableData(sessionTable)
+		// Proses tabel dan pertanyaan
+		tapasResponse, err := processTableData(sessionTable, question)
 		if err != nil {
 			log.Printf("Error processing table data: %v\n", err)
 			http.Error(w, "Gagal memproses data", http.StatusInternalServerError)
 			return
 		}
-
-		log.Printf("Headers: %v\n", r.Header)
-		log.Printf("Content-Type: %v\n", r.Header.Get("Content-Type"))
-		log.Printf("Form: %v\n", r.MultipartForm)
-		
 	
 		// Kirim respons dengan data yang diformat
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"status":  "sukses",
-			"message": "File berhasil diproses",
+			"message": "File berhasil diproses dan pertanyaan dijawab.",
 			"data": map[string]interface{}{
-				"answer": tapasResponse.Answer,
+				"answer":      tapasResponse.Answer,
 				"coordinates": tapasResponse.Coordinates,
-				"cells": tapasResponse.Cells,
-				"aggregator": tapasResponse.Aggregator,
+				"cells":       tapasResponse.Cells,
+				"aggregator":  tapasResponse.Aggregator,
 			},
 		})
 	}).Methods("POST")
+	
+	
+	
 	
 
 
