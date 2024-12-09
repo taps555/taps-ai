@@ -124,6 +124,14 @@ func main() {
 			SameSite: http.SameSiteNoneMode,
 			Secure:   false, // Nonaktifkan Secure untuk pengujian lokal
 		}
+
+		var input struct {
+			Question string `json:"question"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+			http.Error(w, "Invalid request body", http.StatusBadRequest)
+			return
+		}
 	
 		// Parse file yang diunggah
 		file, _, err := r.FormFile("file")
@@ -139,6 +147,8 @@ func main() {
 			http.Error(w, "Gagal membaca isi file", http.StatusInternalServerError)
 			return
 		}
+
+
 	
 		// log.Println("File content:", fileContent)
 	
@@ -171,6 +181,11 @@ func main() {
 			http.Error(w, "Gagal memproses data", http.StatusInternalServerError)
 			return
 		}
+
+		log.Printf("Headers: %v\n", r.Header)
+		log.Printf("Content-Type: %v\n", r.Header.Get("Content-Type"))
+		log.Printf("Form: %v\n", r.MultipartForm)
+		
 	
 		// Kirim respons dengan data yang diformat
 		w.Header().Set("Content-Type", "application/json")
