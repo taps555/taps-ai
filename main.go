@@ -75,7 +75,7 @@ func processTableData(table map[string][]string) (model.TapasResponse, error) {
 	answer := "Total konsumsi energi perangkat:"
 	var coordinates [][]int
 	var cells []string
-	var aggregator = "SUM"
+	var aggregator = ""
 	
 	// Mengonversi data ke format yang diinginkan untuk respons
 	for appliance, totalEnergy := range applianceEnergy {
