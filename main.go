@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math"
 	"net/http"
 	"os"
 	"strconv"
@@ -24,7 +25,7 @@ import (
 var aiService = &service.AIService{Client: &http.Client{}}
 // Gunakan nama kunci yang lebih deskriptif untuk sesi.
 var store = sessions.NewCookieStore([]byte("super-secret-key"))	
-var fileService = &service.FileService{}
+// var fileService = &service.FileService{}
 
 
 func getSession(r *http.Request) *sessions.Session {
@@ -60,149 +61,183 @@ func getSessionData(r *http.Request) (map[string][]string, error) {
 // Pastikan package strings diimport
 
 
-// Pastikan package strings diimport
-
-
 
 func processTableData(table map[string][]string, question string) (model.TapasResponse, error) {
-    var answer string
-    applianceEnergy := make(map[string]float64)
+	var answer string
+	var coordinates [][]int // Untuk menyimpan posisi koordinat jika diperlukan
+	var cells []string      // Menyimpan sel terkait jika diperlukan
+	var aggregator string   // Menyimpan jenis agregasi jika diperlukan
 
-    log.Println("Data perangkat yang terdeteksi:")
-    for i, appliance := range table["Appliance"] {
-        log.Printf("Perangkat %d: %s\n", i+1, appliance)
-    }
+	applianceEnergy := make(map[string]float64)
+	applianceCount := make(map[string]int)
 
-    questionLower := strings.ToLower(question)
+	log.Println("Data perangkat yang terdeteksi:")
+	for i, appliance := range table["Appliance"] {
+		log.Printf("Perangkat %d: %s\n", i+1, appliance)
+	}
 
-    // Menangani pertanyaan tentang total energi untuk perangkat tertentu
-    if strings.Contains(questionLower, "total energi") {
-        var applianceQuery string
-        // Tentukan perangkat yang disebutkan dalam pertanyaan
-        if strings.Contains(questionLower, "ac") {
-            applianceQuery = "AC"
-        } else if strings.Contains(questionLower, "tv") {
-            applianceQuery = "TV"
-        } else if strings.Contains(questionLower, "evcar") {
-            applianceQuery = "EVCar"
-        } else if strings.Contains(questionLower, "refrigerator") {
-            applianceQuery = "Refrigerator"
-        } else if strings.Contains(questionLower, "fridge") { // Alias untuk Refrigerator
-            applianceQuery = "Refrigerator"
-        } else if strings.Contains(questionLower, "televisi") { // Alias untuk TV
-            applianceQuery = "TV"
-        }
+	questionLower := strings.ToLower(question)
 
-        log.Printf("Mencari perangkat: %s\n", applianceQuery)
+	// Menangani pertanyaan tentang total energi untuk perangkat tertentu
+	if strings.Contains(questionLower, "total energi") {
+		var applianceQuery string
+		if strings.Contains(questionLower, "ac") {
+			applianceQuery = "AC"
+		} else if strings.Contains(questionLower, "tv") {
+			applianceQuery = "TV"
+		} else if strings.Contains(questionLower, "evcar") {
+			applianceQuery = "EVCar"
+		} else if strings.Contains(questionLower, "refrigerator") {
+			applianceQuery = "Refrigerator"
+		} else if strings.Contains(questionLower, "fridge") { // Alias untuk Refrigerator
+			applianceQuery = "Refrigerator"
+		} else if strings.Contains(questionLower, "televisi") { // Alias untuk TV
+			applianceQuery = "TV"
+		}
 
-        if applianceQuery != "" {
-            found := false
-            for i := 0; i < len(table["Appliance"]); i++ {
-                appliance := table["Appliance"][i]
-                applianceLower := strings.ToLower(appliance)
+		log.Printf("Mencari perangkat: %s\n", applianceQuery)
 
-                if applianceLower == strings.ToLower(applianceQuery) {  // Pastikan perbandingan case-insensitive
-                    found = true
-                    if _, exists := applianceEnergy[appliance]; !exists {
-                        energyConsumption, err := strconv.ParseFloat(table["Energy_Consumption"][i], 64)
-                        if err != nil {
-                            return model.TapasResponse{}, fmt.Errorf("error parsing energy consumption: %v", err)
-                        }
-                        applianceEnergy[appliance] += energyConsumption
-                    }
-                }
-            }
+		if applianceQuery != "" {
+			found := false
+			for i := 0; i < len(table["Appliance"]); i++ {
+				appliance := table["Appliance"][i]
+				applianceLower := strings.ToLower(appliance)
 
-            if found {
-                answer = fmt.Sprintf("%s: %.2f kWh.", applianceQuery, applianceEnergy[applianceQuery])
-            } else {
-                answer = fmt.Sprintf("Perangkat %s tidak ditemukan dalam data.", applianceQuery)
-            }
-        } else {
-            answer = "Perangkat yang diminta tidak dikenali dalam pertanyaan."
-        }
-    }
+				if applianceLower == strings.ToLower(applianceQuery) { // Pastikan perbandingan case-insensitive
+					found = true
+					if _, exists := applianceEnergy[appliance]; !exists {
+						energyConsumption, err := strconv.ParseFloat(table["Energy_Consumption"][i], 64)
+						if err != nil {
+							return model.TapasResponse{}, fmt.Errorf("error parsing energy consumption: %v", err)
+						}
+						applianceEnergy[appliance] += energyConsumption
+						applianceCount[appliance]++
+					}
+				}
+			}
 
-    // Menangani pertanyaan tentang perbandingan energi antara beberapa perangkat
-    if strings.Contains(questionLower, "perbandingan energi") {
-        var appliances []string
-        if strings.Contains(questionLower, "ac") {
-            appliances = append(appliances, "AC")
-        }
-        if strings.Contains(questionLower, "tv") {
-            appliances = append(appliances, "TV")
-        }
-        if strings.Contains(questionLower, "evcar") {
-            appliances = append(appliances, "EVCar")
-        }
-        if strings.Contains(questionLower, "refrigerator") {
-            appliances = append(appliances, "Refrigerator")
-        } else if strings.Contains(questionLower, "fridge") { // Alias untuk Refrigerator
-            appliances = append(appliances, "Refrigerator")
-        } else if strings.Contains(questionLower, "televisi") { // Alias untuk TV
-            appliances = append(appliances, "TV")
-        }
+			if found {
+				answer = fmt.Sprintf("%s: %.2f kWh.", applianceQuery, applianceEnergy[applianceQuery])
+			} else {
+				answer = fmt.Sprintf("Perangkat %s tidak ditemukan dalam data.", applianceQuery)
+			}
+		} else {
+			answer = "Perangkat yang diminta tidak dikenali dalam pertanyaan."
+		}
+	}
 
-        // Hitung konsumsi energi untuk perangkat yang disebutkan
-        comparisonResults := []string{}
-        for _, applianceQuery := range appliances {
-            found := false
-            for i := 0; i < len(table["Appliance"]); i++ {
-                appliance := table["Appliance"][i]
-                applianceLower := strings.ToLower(appliance)
+	// Menangani pertanyaan tentang total energi semua perangkat
+	if strings.Contains(questionLower, "total energi semua perangkat") {
+		totalEnergy := 0.0
+		for i := 0; i < len(table["Appliance"]); i++ {
+			energyConsumption, err := strconv.ParseFloat(table["Energy_Consumption"][i], 64)
+			if err != nil {
+				return model.TapasResponse{}, fmt.Errorf("error parsing energy consumption: %v", err)
+			}
+			totalEnergy += energyConsumption
+		}
+		answer = fmt.Sprintf("Total energi dari semua perangkat: %.2f kWh.", totalEnergy)
+	}
 
-                if applianceLower == strings.ToLower(applianceQuery) {
-                    found = true
-                    if _, exists := applianceEnergy[appliance]; !exists {
-                        energyConsumption, err := strconv.ParseFloat(table["Energy_Consumption"][i], 64)
-                        if err != nil {
-                            return model.TapasResponse{}, fmt.Errorf("error parsing energy consumption: %v", err)
-                        }
-                        applianceEnergy[appliance] += energyConsumption
-                    }
-                }
-            }
+	// Menangani pertanyaan tentang konsumsi energi per hari
+	if strings.Contains(questionLower, "konsumsi energi per hari") {
+		dailyEnergy := make(map[string]float64)
+		for i := 0; i < len(table["Appliance"]); i++ {
+			energyConsumption, err := strconv.ParseFloat(table["Energy_Consumption"][i], 64)
+			if err != nil {
+				return model.TapasResponse{}, fmt.Errorf("error parsing energy consumption: %v", err)
+			}
+			appliance := table["Appliance"][i]
+			dailyEnergy[appliance] += energyConsumption
+		}
+		var dailyReport []string
+		for appliance, energy := range dailyEnergy {
+			dailyReport = append(dailyReport, fmt.Sprintf("%s: %.2f kWh", appliance, energy))
+		}
+		answer = "Konsumsi Energi Per Hari: " + strings.Join(dailyReport, ", ")
+	}
 
-            if found {
-                comparisonResults = append(comparisonResults, fmt.Sprintf("%s: %.2f kWh", applianceQuery, applianceEnergy[applianceQuery]))
-            } else {
-                comparisonResults = append(comparisonResults, fmt.Sprintf("%s tidak ditemukan dalam data.", applianceQuery))
-            }
-        }
+	// Menangani pertanyaan tentang konsumsi energi per minggu
+	if strings.Contains(questionLower, "konsumsi energi per minggu") {
+		weeklyEnergy := make(map[string]float64)
+		for i := 0; i < len(table["Appliance"]); i++ {
+			energyConsumption, err := strconv.ParseFloat(table["Energy_Consumption"][i], 64)
+			if err != nil {
+				return model.TapasResponse{}, fmt.Errorf("error parsing energy consumption: %v", err)
+			}
+			appliance := table["Appliance"][i]
+			weeklyEnergy[appliance] += energyConsumption * 7 // Anggap konsumsi harian sama setiap hari dalam seminggu
+		}
+		var weeklyReport []string
+		for appliance, energy := range weeklyEnergy {
+			weeklyReport = append(weeklyReport, fmt.Sprintf("%s: %.2f kWh", appliance, energy))
+		}
+		answer = "Konsumsi Energi Per Minggu: " + strings.Join(weeklyReport, ", ")
+	}
 
-        // Gabungkan hasil perbandingan energi
-        answer = "Perbandingan Energi Perangkat: " + strings.Join(comparisonResults, ", ")
-    }
+	// Menangani pertanyaan tentang konsumsi energi per bulan
+	if strings.Contains(questionLower, "konsumsi energi per bulan") {
+		monthlyEnergy := make(map[string]float64)
+		for i := 0; i < len(table["Appliance"]); i++ {
+			energyConsumption, err := strconv.ParseFloat(table["Energy_Consumption"][i], 64)
+			if err != nil {
+				return model.TapasResponse{}, fmt.Errorf("error parsing energy consumption: %v", err)
+			}
+			appliance := table["Appliance"][i]
+			monthlyEnergy[appliance] += energyConsumption * 30 // Anggap konsumsi harian sama setiap hari dalam sebulan
+		}
+		var monthlyReport []string
+		for appliance, energy := range monthlyEnergy {
+			monthlyReport = append(monthlyReport, fmt.Sprintf("%s: %.2f kWh", appliance, energy))
+		}
+		answer = "Konsumsi Energi Per Bulan: " + strings.Join(monthlyReport, ", ")
+	}
 
-    // Menangani pertanyaan tentang perangkat yang tidak terdaftar
-    if strings.Contains(questionLower, "lampu") || strings.Contains(questionLower, "mesin cuci") || strings.Contains(questionLower, "kipas") {
-        answer = "Perangkat yang Anda tanyakan tidak ditemukan dalam data."
-    }
+	// Menangani pertanyaan tentang perangkat dengan konsumsi energi tertinggi
+	if strings.Contains(questionLower, "perangkat dengan konsumsi energi tertinggi") {
+		highestEnergy := 0.0
+		applianceWithHighestEnergy := ""
+		for i := 0; i < len(table["Appliance"]); i++ {
+			energyConsumption, err := strconv.ParseFloat(table["Energy_Consumption"][i], 64)
+			if err != nil {
+				return model.TapasResponse{}, fmt.Errorf("error parsing energy consumption: %v", err)
+			}
+			appliance := table["Appliance"][i]
+			if energyConsumption > highestEnergy {
+				highestEnergy = energyConsumption
+				applianceWithHighestEnergy = appliance
+			}
+		}
+		answer = fmt.Sprintf("Perangkat dengan konsumsi energi tertinggi adalah %s dengan konsumsi energi %.2f kWh.", applianceWithHighestEnergy, highestEnergy)
+	}
 
-    // Menangani pertanyaan tentang total energi semua perangkat
-    if strings.Contains(questionLower, "total energi semua perangkat") {
-        totalEnergy := 0.0
-        for i := 0; i < len(table["Appliance"]); i++ {
-            energyConsumption, err := strconv.ParseFloat(table["Energy_Consumption"][i], 64)
-            if err != nil {
-                return model.TapasResponse{}, fmt.Errorf("error parsing energy consumption: %v", err)
-            }
-            totalEnergy += energyConsumption
-        }
-        answer = fmt.Sprintf("Total energi dari semua perangkat: %.2f kWh.", totalEnergy)
-    }
+	// Menangani pertanyaan tentang perangkat dengan konsumsi energi terendah
+	if strings.Contains(questionLower, "perangkat dengan konsumsi energi terendah") {
+		lowestEnergy := math.MaxFloat64
+		applianceWithLowestEnergy := ""
+		for i := 0; i < len(table["Appliance"]); i++ {
+			energyConsumption, err := strconv.ParseFloat(table["Energy_Consumption"][i], 64)
+			if err != nil {
+				return model.TapasResponse{}, fmt.Errorf("error parsing energy consumption: %v", err)
+			}
+			appliance := table["Appliance"][i]
+			if energyConsumption < lowestEnergy {
+				lowestEnergy = energyConsumption
+				applianceWithLowestEnergy = appliance
+			}
+		}
+		answer = fmt.Sprintf("Perangkat dengan konsumsi energi terendah adalah %s dengan konsumsi energi %.2f kWh.", applianceWithLowestEnergy, lowestEnergy)
+	}
 
-    // Gabungkan hasil dan kembalikan
-    return model.TapasResponse{
-        Answer:      answer,
-        Coordinates: nil,
-        Cells:       nil,
-        Aggregator:  "SUM",
-    }, nil
-}
+	// Mengembalikan respons dalam format TapasResponse
+	return model.TapasResponse{
+		Answer: answer,
+		Coordinates: coordinates,  // Tambahkan jika perlu koordinat
+		Cells:       cells,        // Tambahkan jika perlu sel
+		Aggregator:  aggregator,    // Tambahkan jika perlu agregator
+	}, nil
 
-
-
+	}
 
 
 
@@ -309,6 +344,8 @@ func main() {
 			http.Error(w, "Gagal memproses data", http.StatusInternalServerError)
 			return
 		}
+
+		log.Printf("TapasResponse: %+v\n", tapasResponse)
 	
 		// Kirim respons dengan data yang diformat
 		w.Header().Set("Content-Type", "application/json")

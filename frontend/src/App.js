@@ -167,7 +167,6 @@ function App() {
         {response ? (
           renderResponseData()
         ) : (
-          <p>Hallo silahkan upload file dataset kamu</p>
         )}
       </div>
     </div>
