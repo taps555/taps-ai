@@ -20,12 +20,10 @@ type AIService struct {
 }
 
 func (s *AIService) AnalyzeData(table map[string][]string, query, token string) (string, error) {
-    // Validasi input tabel
     if len(table) == 0 {
         return "", errors.New("tabel kosong")
     }
 
-    // Membuat payload untuk API
     payload := map[string]interface{}{
         "inputs": map[string]interface{}{
             "table": table,
@@ -33,55 +31,51 @@ func (s *AIService) AnalyzeData(table map[string][]string, query, token string) 
         },
     }
 
-    // Marshal payload menjadi JSON
     payloadBytes, err := json.Marshal(payload)
     if err != nil {
         return "", errors.New("gagal membuat payload JSON")
     }
 
-    // Membuat permintaan HTTP POST
     req, err := http.NewRequest("POST", "https://api-inference.huggingface.co/models/google/tapas-base-finetuned-wtq", bytes.NewBuffer(payloadBytes))
     if err != nil {
         return "", errors.New("gagal membuat permintaan HTTP")
     }
 
-    // Menambahkan header ke permintaan
     req.Header.Set("Authorization", "Bearer "+token)
     req.Header.Set("Content-Type", "application/json")
 
-    // Eksekusi permintaan ke API
     resp, err := s.Client.Do(req)
     if err != nil {
         return "", errors.New("gagal mengirim permintaan ke API")
     }
     defer resp.Body.Close()
 
-    // Periksa status kode respons dari API
     if resp.StatusCode != http.StatusOK {
         body, _ := io.ReadAll(resp.Body)
         return "", fmt.Errorf("API gagal: %s", string(body))
     }
 
-    // Dekode respons API
     var result map[string]interface{}
     if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
         return "", errors.New("gagal mendekode respons JSON")
     }
 
-    // Debugging: Log respons API
-    // log.Printf("API Response: %v", result)
-
-    // Gantilah 'generated_text' dengan 'answer'
+    // Cek apakah 'answer' ada dalam respons
     answer, ok := result["answer"].(string)
     if !ok {
-        // Jika 'answer' tidak ada, logkan seluruh respons untuk debugging
         log.Printf("Tidak ditemukan 'answer' dalam respons: %v", result)
         return "", errors.New("respon tidak valid atau 'answer' tidak ditemukan")
     }
 
-    // Kembalikan teks yang dihasilkan
+    // Memeriksa apakah ada confidence score atau data lain yang bisa digunakan untuk meningkatkan jawaban
+    confidence, _ := result["confidence"].(float64)
+    if confidence < 0.5 {
+        log.Printf("Tingkat kepercayaan rendah: %.2f", confidence)
+    }
+
     return answer, nil
 }
+
 
 
 func (s *AIService) ChatWithAI(context, query, token string) (model.ChatResponse, error) {

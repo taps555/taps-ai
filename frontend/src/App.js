@@ -164,7 +164,11 @@ function App() {
         }}
       >
         <h2>Response</h2>
-        {response ? renderResponseData() : <p>Hallo silahkan upload file dataset kamu</p>}
+        {response ? (
+          renderResponseData()
+        ) : (
+          <p>Hallo silahkan upload file dataset kamu</p>
+        )}
       </div>
     </div>
   );
