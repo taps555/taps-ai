@@ -4,7 +4,13 @@ import axios from "axios";
 function App() {
   const [file, setFile] = useState(null);
   const [query, setQuery] = useState("");
+
   const [response, setResponse] = useState("");
+  const [question, setQuestion] = useState("");
+
+  const [responseAI, setResponseAI] = useState("");
+  const [questionAI, setQuestionAI] = useState("");
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
 
@@ -18,8 +24,15 @@ function App() {
       return;
     }
 
+    if (!question.trim()) {
+      // Memeriksa jika 'question' kosong atau hanya spasi
+      setError("Pertanyaan tidak boleh kosong!");
+      return;
+    }
+
     const formData = new FormData();
     formData.append("file", file);
+    formData.append("question", question); // Menambahkan question ke dalam formData
 
     try {
       setLoading(true);
@@ -34,9 +47,18 @@ function App() {
       setResponse(res.data.data); // Set response data from backend
       setLoading(false);
     } catch (error) {
-      console.error("Error uploading file:", error);
-      setError("Terjadi kesalahan saat meng-upload file, coba lagi.");
-      setLoading(false);
+      if (error.response) {
+        // Server responded with a status code outside of the 2xx range
+        console.error("Error response:", error.response);
+        setError(error.response.data || "Terjadi kesalahan pada server.");
+      } else if (error.request) {
+        // Request was made but no response was received
+        console.error("Error request:", error.request);
+        setError("Tidak ada respons dari server.");
+      } else {
+        console.error("Error:", error.message);
+        setError("Terjadi kesalahan saat mengirim permintaan.");
+      }
     }
   };
 
@@ -45,15 +67,30 @@ function App() {
 
     try {
       const res = await axios.post("http://localhost:8080/chat", { query });
-      if (res.data && res.data.generated_text) {
-        console.log("Respons chat:", res.data);
-        setResponse(res.data.generated_text); // Memperbarui respons dengan teks yang dihasilkan
+
+      if (res.data && res.data.answer) {
+        console.log("Respons chat:", res.data.answer);
+
+        // Memisahkan pertanyaan dan jawaban
+        const response = res.data.answer;
+        const question = query; // Pertanyaan yang dikirimkan
+        const answer = response.replace(question, "").trim(); // Menghapus pertanyaan dari jawaban
+
+        // Menyimpan pertanyaan dan jawaban
+        setQuestionAI(question); // Menyimpan pertanyaan
+        setResponseAI(answer); // Menyimpan jawaban yang sudah dipisahkan
+
+        console.log("Pertanyaan:", question);
+        console.log("Jawaban:", answer);
       } else {
         setError("Respons dari server tidak sesuai.");
       }
+
       setLoading(false); // Adjust based on backend response
     } catch (error) {
       console.error("Error querying chat:", error);
+      setError("Terjadi kesalahan saat mengirimkan query.");
+      setLoading(false); // Pastikan loading di-set ke false meskipun terjadi error
     }
   };
 
@@ -66,23 +103,6 @@ function App() {
       <div>
         <p>
           <strong>Answer:</strong> {answer}
-        </p>
-        <p>
-          <strong>Aggregator:</strong> {aggregator}
-        </p>
-        <p>
-          <strong>Cells:</strong>{" "}
-          {cells && cells.length > 0
-            ? cells.join(", ")
-            : "No cells data available"}
-        </p>
-        <p>
-          <strong>Coordinates:</strong>{" "}
-          {coordinates && coordinates.length > 0
-            ? coordinates
-                .map((coord) => `(${coord[0]}, ${coord[1]})`)
-                .join(", ")
-            : "No coordinates data available"}
         </p>
       </div>
     );
@@ -102,6 +122,7 @@ function App() {
         Data Analysis Chatbot
       </h1>
       <div style={{ marginBottom: "20px" }}>
+        {/* Input file */}
         <input
           type="file"
           onChange={handleFileChange}
@@ -112,20 +133,41 @@ function App() {
             borderRadius: "4px",
           }}
         />
-        <button
-          onClick={handleUpload}
-          style={{
-            padding: "10px 20px",
-            backgroundColor: "#007bff",
-            color: "white",
-            border: "none",
-            borderRadius: "4px",
-            cursor: "pointer",
-          }}
-        >
-          Upload and Analyze
-        </button>
       </div>
+
+      {/* Input untuk pertanyaan */}
+      <div style={{ marginBottom: "20px" }}>
+        <input
+          type="text"
+          value={question}
+          onChange={(e) => setQuestion(e.target.value)}
+          placeholder="Masukkan pertanyaan..."
+          style={{
+            padding: "10px",
+            marginBottom: "10px",
+            width: "100%",
+            border: "1px solid #ccc",
+            borderRadius: "4px",
+          }}
+        />
+      </div>
+
+      {/* Tombol upload */}
+      <button
+        onClick={handleUpload}
+        style={{
+          padding: "10px 20px",
+          backgroundColor: "#007bff",
+          color: "white",
+          border: "none",
+          borderRadius: "4px",
+          cursor: "pointer",
+        }}
+      >
+        Upload and Analyze
+      </button>
+
+      <div style={{ marginTop: "20px" }}></div>
       <div style={{ marginBottom: "20px" }}>
         <input
           type="text"
@@ -164,10 +206,22 @@ function App() {
         }}
       >
         <h2>Response</h2>
-        {response ? (
-          renderResponseData()
-        ) : (
-        )}
+        {response ? renderResponseData() : <p>{error}</p>}
+      </div>
+
+      <div
+        style={{
+          marginTop: "20px",
+          padding: "10px",
+          border: "1px solid #ccc",
+          borderRadius: "4px",
+          backgroundColor: "#f9f9f9",
+        }}
+      >
+        <h2>Question AI</h2>
+        {questionAI ? <p>{questionAI}</p> : <p>{error}</p>}
+        <h2>Response AI</h2>
+        {responseAI ? <p>{responseAI}</p> : <p>{error}</p>}
       </div>
     </div>
   );

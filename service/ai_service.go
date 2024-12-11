@@ -77,25 +77,27 @@ func (s *AIService) AnalyzeData(table map[string][]string, query, token string) 
 }
 
 
-
-func (s *AIService) ChatWithAI(context, query, token string) (model.ChatResponse, error) {
+func (s *AIService) ChatWithAI(context, query, token string) (string, error) {
 	url := "https://api-inference.huggingface.co/models/Qwen/Qwen2.5-Coder-32B-Instruct"
 
-	// Membuat payload request
-	payload := map[string]string{
+	// Membuat payload request dengan max_new_tokens
+	payload := map[string]interface{}{
 		"inputs": context + "\n" + query,
+		"parameters": map[string]interface{}{
+			"max_new_tokens": 1000, // Tentukan jumlah token baru yang diinginkan
+		},
 	}
 
 	// Mengkonversi payload ke JSON
 	reqBody, err := json.Marshal(payload)
 	if err != nil {
-		return model.ChatResponse{}, fmt.Errorf("failed to marshal request body: %w", err)
+		return "", fmt.Errorf("failed to marshal request body: %w", err)
 	}
 
 	// Membuat request ke API
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(reqBody))
 	if err != nil {
-		return model.ChatResponse{}, fmt.Errorf("failed to create request: %w", err)
+		return "", fmt.Errorf("failed to create request: %w", err)
 	}
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Content-Type", "application/json")
@@ -103,24 +105,27 @@ func (s *AIService) ChatWithAI(context, query, token string) (model.ChatResponse
 	// Mengirim request
 	resp, err := s.Client.Do(req)
 	if err != nil {
-		return model.ChatResponse{}, fmt.Errorf("failed to send request: %w", err)
+		return "", fmt.Errorf("failed to send request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	// Memeriksa status response
 	if resp.StatusCode != http.StatusOK {
-		return model.ChatResponse{}, fmt.Errorf("failed with status: %s", resp.Status)
+		return "", fmt.Errorf("failed with status: %s", resp.Status)
 	}
 
 	// Membaca response body
 	var chatResp []model.ChatResponse
 	if err := json.NewDecoder(resp.Body).Decode(&chatResp); err != nil {
-		return model.ChatResponse{}, fmt.Errorf("failed to decode response: %w", err)
+		return "", fmt.Errorf("failed to decode response: %w", err)
 	}
 
-	// Mengembalikan jawaban
+	// Memastikan ada respons
 	if len(chatResp) > 0 {
-		return chatResp[0], nil
+		// Mengembalikan hanya jawaban dari model AI
+		return chatResp[0].GeneratedText, nil
 	}
-	return model.ChatResponse{}, fmt.Errorf("no response generated")
+
+	return "", fmt.Errorf("no response generated")
 }
+
