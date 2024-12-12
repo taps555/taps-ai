@@ -6,6 +6,8 @@ const ChatWithAI = () => {
   const [response, setResponse] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [responseAI, setResponseAI] = useState(false);
+
   const responseRef = useRef(null);
 
   const handleChat = async () => {
@@ -18,23 +20,32 @@ const ChatWithAI = () => {
     setLoading(true);
 
     try {
-      const res = await fetch("http://localhost:8080/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query }),
-      });
-      const data = await res.json();
+      const res = await axios.post("http://localhost:8080/chat", { query });
 
-      if (data.answer) {
-        setResponse(data.answer);
+      if (res.data && res.data.answer) {
+        console.log("Respons chat:", res.data.answer);
+
+        // Memisahkan pertanyaan dan jawaban
+        const response = res.data.answer;
+        const question = query; // Pertanyaan yang dikirimkan
+        const answer = response.replace(question, "").trim(); // Menghapus pertanyaan dari jawaban
+
+        // Menyimpan pertanyaan dan jawaban
+        setQuestionAI(question); // Menyimpan pertanyaan
+        setResponseAI(answer); // Menyimpan jawaban yang sudah dipisahkan
+
+        console.log("Pertanyaan:", question);
+        console.log("Jawaban:", answer);
       } else {
-        setError("No response from AI.");
+        setError("Respons dari server tidak sesuai.");
       }
-    } catch (err) {
-      setError("Error connecting to AI.");
-    }
 
-    setLoading(false);
+      setLoading(false); // Adjust based on backend response
+    } catch (error) {
+      console.error("Error querying chat:", error);
+      setError("Terjadi kesalahan saat mengirimkan query.");
+      setLoading(false); // Pastikan loading di-set ke false meskipun terjadi error
+    }
   };
 
   useEffect(() => {
