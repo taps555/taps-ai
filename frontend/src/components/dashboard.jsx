@@ -105,14 +105,20 @@ const Dashboard = () => {
       <Sidebar />
 
       {/* Main Dashboard Content */}
-      <div className="flex-1 flex flex-col bg-white rounded-2xl p-8 shadow-xl ml-6">
+      <div
+        className="flex-1 flex flex-col bg-white rounded-2xl p-8 shadow-xl ml-6"
+        style={{
+          height: "auto",
+          paddingBottom: "50px", // Ensures some padding at the bottom for spacing
+        }}
+      >
         <h2 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-800 to-blue-500 mb-6 text-center relative">
           Application Energy Analys
           <span className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-20 h-1 bg-gradient-to-r from-blue-800 to-blue-500 rounded-lg"></span>
         </h2>
 
         {/* Appliance Section */}
-        <div className="grid grid-cols-3 gap-6 mb-6">
+        <div className="grid grid-cols-4 gap-6 mb-6">
           {applianceData.map((appliance, index) => {
             const totalEnergy = applianceData.reduce(
               (sum, item) => sum + item.energy,
@@ -167,14 +173,18 @@ const Dashboard = () => {
                   </div>
                 </div>
                 <p className="text-blue-800 text-sm font-normal">
-                  Weekly: {appliance.energy.toFixed(2)} kWh
+                  Total: {appliance.energy.toFixed(2)} kWh
                 </p>
-                <p className="text-blue-800 text-sm font-normal">
-                  Daily: {dailyEnergy.toFixed(2)} kWh
-                </p>
-                <p className="text-blue-800 text-sm font-normal">
-                  Monthly: {monthlyEnergy.toFixed(2)} kWh
-                </p>
+                {response?.question?.toLowerCase().includes("daily") && (
+                  <p className="text-blue-800 text-sm font-normal">
+                    Daily: {dailyEnergy.toFixed(2)} kWh
+                  </p>
+                )}
+                {response?.question?.toLowerCase().includes("monthly") && (
+                  <p className="text-blue-800 text-sm font-normal">
+                    Monthly: {monthlyEnergy.toFixed(2)} kWh
+                  </p>
+                )}
               </div>
             );
           })}
@@ -188,10 +198,10 @@ const Dashboard = () => {
           <input
             type="file"
             className="block w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4
-                       file:rounded-md file:border-0
-                       file:text-sm file:font-semibold
-                       file:bg-gray-300 file:text-gray-800
-                       hover:file:bg-gray-400 transition"
+                     file:rounded-md file:border-0
+                     file:text-sm file:font-semibold
+                     file:bg-gray-300 file:text-gray-800
+                     hover:file:bg-gray-400 transition"
             onChange={(e) => setFile(e.target.files[0])}
           />
           <input
@@ -210,33 +220,6 @@ const Dashboard = () => {
           </button>
           {error && <p className="text-red-500 mt-3 text-center">{error}</p>}
         </div>
-
-        {/* Detailed Response Section */}
-        {response && (
-          <div className="bg-blue-100 rounded-lg p-6 flex flex-col items-center shadow-md hover:shadow-lg transition col-span-3">
-            <h4 className="text-blue-600 text-center text-lg font-semibold mb-3">
-              {response?.answer?.split(":")[0]}{" "}
-              {/* Extracts the header (e.g., "Perangkat di Kitchen") */}
-            </h4>
-            <div className="flex flex-wrap justify-center items-center gap-2 mt-3">
-              {[
-                ...new Set(
-                  response?.answer
-                    ?.split(":")[1]
-                    ?.split(",")
-                    .map((item) => item.trim()) // Remove duplicates and trim spaces
-                ),
-              ].map((appliance, index) => (
-                <span
-                  key={index}
-                  className="bg-blue-200 text-blue-800 px-3 py-1 rounded-lg text-sm font-semibold shadow-sm"
-                >
-                  {appliance}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
