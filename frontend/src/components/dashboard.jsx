@@ -40,21 +40,21 @@ const Dashboard = () => {
       setLoading(true);
       setError(""); // Clear previous errors
 
-      // Upload file and get appliance data directly from the response
       const res = await axios.post("http://localhost:8080/upload", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
       if (res.data && res.data.data) {
-        // Assume that the response includes energy usage for appliances
         const { answer, coordinates, cells, aggregator } = res.data.data;
 
         // Parse appliance data from the answer (e.g., "Refrigerator: 201.60 kWh, TV: 28.00 kWh")
         const appliances = answer.split(", ").map((item) => {
-          const [name, energy] = item.split(": ");
-          return { name, energy: parseFloat(energy.replace(" kWh", "")) };
+          const [name, energyString] = item.split(": ");
+          const energy = parseFloat(energyString?.replace(" kWh", "")) || 0;
+          return { name: name?.trim() || "Unknown", energy };
         });
 
+        // Update states
         setResponse({ answer, coordinates, cells, aggregator });
         setApplianceData(appliances); // Update appliance data for progress bars
         setLoading(false);
@@ -63,6 +63,7 @@ const Dashboard = () => {
         setLoading(false);
       }
     } catch (error) {
+      console.error("Error during upload:", error);
       setError("Error uploading file or fetching response.");
       setLoading(false);
     }
