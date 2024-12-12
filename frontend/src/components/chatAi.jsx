@@ -1,11 +1,13 @@
-import React, { useState } from "react";
-import Sidebar from "./sidebar";
+import React, { useState, useRef, useEffect } from "react";
+import axios from "axios";
 
-const ChatWithAI = () => {
+
+const ChatWithAI = ({ Sidebar }) => {
   const [query, setQuery] = useState("");
   const [response, setResponse] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const responseRef = useRef(null);
 
   const handleChat = async () => {
     if (!query.trim()) {
@@ -36,9 +38,16 @@ const ChatWithAI = () => {
     setLoading(false);
   };
 
+  // Scroll to bottom when new response is added
+  useEffect(() => {
+    if (responseRef.current) {
+      responseRef.current.scrollTop = responseRef.current.scrollHeight;
+    }
+  }, [response]);
+
   return (
     <div className="flex h-screen bg-gradient-to-r from-blue-500 to-blue-300 p-6">
-      {/* Sidebar */}
+      {/* Sidebar - Passed as a Prop */}
       <Sidebar />
 
       {/* Main Content */}
@@ -48,7 +57,7 @@ const ChatWithAI = () => {
           height: "auto",
           paddingBottom: "50px", // Ensures some padding at the bottom for spacing
         }}
-        >
+      >
         <h2 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-800 to-blue-500 mb-6 text-center relative">
           Chat with AI
           <span className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-20 h-1 bg-gradient-to-r from-blue-800 to-blue-500 rounded-lg"></span>
@@ -56,7 +65,10 @@ const ChatWithAI = () => {
 
         <div className="flex-1 flex flex-col items-center justify-between bg-blue-100 rounded-lg p-6 shadow-lg">
           {/* Chat Display */}
-          <div className="flex-1 w-full overflow-y-auto mb-6 bg-white rounded-lg shadow-inner p-4">
+          <div
+            ref={responseRef}
+            className="flex-1 w-full overflow-y-auto mb-6 bg-white rounded-lg shadow-inner p-4"
+          >
             {response ? (
               <p className="text-gray-800">{response}</p>
             ) : (
@@ -77,10 +89,33 @@ const ChatWithAI = () => {
             />
             <button
               onClick={handleChat}
-              className="px-6 py-2 bg-blue-500 text-white rounded-r-lg hover:bg-blue-600 transition"
+              className="px-6 py-2 bg-blue-500 text-white rounded-r-lg hover:bg-blue-600 transition flex items-center justify-center"
               disabled={loading}
             >
-              {loading ? "Sending..." : "Send"}
+              {loading ? (
+                <svg
+                  className="animate-spin h-5 w-5 text-white"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  ></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8v8h8a8 8 0 01-8 8v-8H4z"
+                  ></path>
+                </svg>
+              ) : (
+                "Send"
+              )}
             </button>
           </div>
 
