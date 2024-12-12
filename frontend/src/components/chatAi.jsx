@@ -1,8 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
-import axios from "axios";
+import Sidebar from "./sidebar";
 
-
-const ChatWithAI = ({ Sidebar }) => {
+const ChatWithAI = () => {
   const [query, setQuery] = useState("");
   const [response, setResponse] = useState("");
   const [error, setError] = useState("");
@@ -38,7 +37,6 @@ const ChatWithAI = ({ Sidebar }) => {
     setLoading(false);
   };
 
-  // Scroll to bottom when new response is added
   useEffect(() => {
     if (responseRef.current) {
       responseRef.current.scrollTop = responseRef.current.scrollHeight;
@@ -47,24 +45,16 @@ const ChatWithAI = ({ Sidebar }) => {
 
   return (
     <div className="flex h-screen bg-gradient-to-r from-blue-500 to-blue-300 p-6">
-      {/* Sidebar - Passed as a Prop */}
+      {/* Sidebar */}
       <Sidebar />
 
       {/* Main Content */}
-      <div
-        className="flex-1 flex flex-col bg-white rounded-2xl p-8 shadow-xl mx-6 my-6"
-        style={{
-          height: "auto",
-          paddingBottom: "50px", // Ensures some padding at the bottom for spacing
-        }}
-      >
-        <h2 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-800 to-blue-500 mb-6 text-center relative">
+      <div className="flex-1 flex flex-col bg-white rounded-2xl p-8 shadow-xl mx-6 my-6">
+        <h2 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-800 to-blue-500 mb-6 text-center">
           Chat with AI
-          <span className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-20 h-1 bg-gradient-to-r from-blue-800 to-blue-500 rounded-lg"></span>
         </h2>
 
         <div className="flex-1 flex flex-col items-center justify-between bg-blue-100 rounded-lg p-6 shadow-lg">
-          {/* Chat Display */}
           <div
             ref={responseRef}
             className="flex-1 w-full overflow-y-auto mb-6 bg-white rounded-lg shadow-inner p-4"
@@ -78,7 +68,6 @@ const ChatWithAI = ({ Sidebar }) => {
             )}
           </div>
 
-          {/* Query Input */}
           <div className="flex items-center w-full">
             <input
               type="text"
@@ -89,37 +78,13 @@ const ChatWithAI = ({ Sidebar }) => {
             />
             <button
               onClick={handleChat}
-              className="px-6 py-2 bg-blue-500 text-white rounded-r-lg hover:bg-blue-600 transition flex items-center justify-center"
+              className="px-6 py-2 bg-blue-500 text-white rounded-r-lg hover:bg-blue-600 transition"
               disabled={loading}
             >
-              {loading ? (
-                <svg
-                  className="animate-spin h-5 w-5 text-white"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  ></circle>
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8v8h8a8 8 0 01-8 8v-8H4z"
-                  ></path>
-                </svg>
-              ) : (
-                "Send"
-              )}
+              {loading ? "Sending..." : "Send"}
             </button>
           </div>
 
-          {/* Error Message */}
           {error && <p className="text-red-500 mt-3">{error}</p>}
         </div>
       </div>

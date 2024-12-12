@@ -22,7 +22,7 @@ const App = () => {
     // Set timer to stop loading after 4 seconds
     const timer = setTimeout(() => {
       setIsLoading(false);
-    }, 8000);
+    }, 1);
 
     return () => clearTimeout(timer); // Cleanup timer
   }, []);
