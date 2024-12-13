@@ -1,23 +1,19 @@
-import React, { useState, useRef, useEffect } from "react";
-import Sidebar from "./sidebar";
+import React, { useState } from "react";
+import axios from "axios";
+import Sidebar from "./sidebar"; // Assuming Sidebar is already created and styled
 
 const ChatWithAI = () => {
+  const [file, setFile] = useState(null);
   const [query, setQuery] = useState("");
   const [response, setResponse] = useState("");
-  const [error, setError] = useState("");
+  const [question, setQuestion] = useState("");
+  const [applianceData, setApplianceData] = useState([]);
+  const [responseAI, setResponseAI] = useState("");
+  const [questionAI, setQuestionAI] = useState("");
   const [loading, setLoading] = useState(false);
-  const [responseAI, setResponseAI] = useState(false);
-
-  const responseRef = useRef(null);
-
+  const [error, setError] = useState("");
   const handleChat = async () => {
-    if (!query.trim()) {
-      setError("Query cannot be empty!");
-      return;
-    }
-
-    setError("");
-    setLoading(true);
+    console.log("Sending query:", query); // Debugging output
 
     try {
       const res = await axios.post("http://localhost:8080/chat", { query });
@@ -48,56 +44,79 @@ const ChatWithAI = () => {
     }
   };
 
-  useEffect(() => {
-    if (responseRef.current) {
-      responseRef.current.scrollTop = responseRef.current.scrollHeight;
-    }
-  }, [response]);
-
   return (
-    <div className="flex h-screen bg-gradient-to-r from-blue-500 to-blue-300 p-6">
+    <div className="flex h-screen bg-gradient-to-r from-blue-500 to-blue-300">
       {/* Sidebar */}
       <Sidebar />
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col bg-white rounded-2xl p-8 shadow-xl mx-6 my-6">
-        <h2 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-800 to-blue-500 mb-6 text-center">
+      {/* Main Chat Section */}
+      <div className="flex-1 flex flex-col bg-white rounded-2xl p-6 shadow-xl mx-6 my-6">
+        {/* Header */}
+        <h1 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-800 to-blue-500 mb-6 text-center">
           Chat with AI
-        </h2>
+        </h1>
 
-        <div className="flex-1 flex flex-col items-center justify-between bg-blue-100 rounded-lg p-6 shadow-lg">
-          <div
-            ref={responseRef}
-            className="flex-1 w-full overflow-y-auto mb-6 bg-white rounded-lg shadow-inner p-4"
-          >
+        {/* Chat Area */}
+        <div className="flex flex-col flex-1 bg-blue-50 rounded-lg p-4 shadow-inner overflow-hidden">
+          {/* Chat Messages */}
+          <div className="flex-1 overflow-y-auto px-4 py-2">
             {response ? (
-              <p className="text-gray-800">{response}</p>
+              <div className="bg-white p-4 rounded-lg shadow mb-4">
+                <p className="text-gray-800">
+                  <strong>AI:</strong> {response}
+                </p>
+              </div>
             ) : (
-              <p className="text-gray-400 italic">
+              <div className="text-gray-400 italic text-center">
                 Your AI response will appear here...
-              </p>
+              </div>
             )}
           </div>
 
-          <div className="flex items-center w-full">
+          {/* Input Section */}
+          <div className="flex mt-4">
             <input
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Type your question here..."
-              className="flex-1 px-4 py-2 rounded-l-lg border border-gray-300 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             <button
               onClick={handleChat}
               className="px-6 py-2 bg-blue-500 text-white rounded-r-lg hover:bg-blue-600 transition"
               disabled={loading}
             >
-              {loading ? "Sending..." : "Send"}
+              {loading ? (
+                <svg
+                  className="animate-spin h-5 w-5 text-white"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  ></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8v8h8a8 8 0 01-8 8v-8H4z"
+                  ></path>
+                </svg>
+              ) : (
+                "Send"
+              )}
             </button>
           </div>
-
-          {error && <p className="text-red-500 mt-3">{error}</p>}
         </div>
+
+        {/* Error Message */}
+        {error && <p className="text-red-500 mt-3">{error}</p>}
       </div>
     </div>
   );
