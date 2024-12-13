@@ -45,12 +45,18 @@ const ChatWithAI = () => {
   };
 
   return (
-    <div className="flex h-screen bg-gradient-to-r from-blue-500 to-blue-300">
+    <div className="flex h-screen bg-gradient-to-r from-blue-500 to-blue-300 p-6">
       {/* Sidebar */}
       <Sidebar />
 
       {/* Main Chat Section */}
-      <div className="flex-1 flex flex-col bg-white rounded-2xl p-6 shadow-xl mx-6 my-6">
+      <div
+        className="flex-1 flex flex-col bg-white rounded-2xl p-8 shadow-xl ml-6"
+        style={{
+          height: "auto",
+          paddingBottom: "50px", // Ensures some padding at the bottom for spacing
+        }}
+      >
         {/* Header */}
         <h1 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-800 to-blue-500 mb-6 text-center">
           Chat with AI
@@ -63,7 +69,8 @@ const ChatWithAI = () => {
             {response ? (
               <div className="bg-white p-4 rounded-lg shadow mb-4">
                 <p className="text-gray-800">
-                  <strong>AI:</strong> {response}
+                  <strong>AI:</strong>{" "}
+                  {responseAI ? <p>{responseAI}</p> : <p>{error}</p>}
                 </p>
               </div>
             ) : (
@@ -86,6 +93,7 @@ const ChatWithAI = () => {
               onClick={handleChat}
               className="px-6 py-2 bg-blue-500 text-white rounded-r-lg hover:bg-blue-600 transition"
               disabled={loading}
+              style={{ cursor: loading ? "not-allowed" : "pointer" }}
             >
               {loading ? (
                 <svg
