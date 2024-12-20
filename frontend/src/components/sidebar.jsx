@@ -1,36 +1,56 @@
-import React from "react";
+import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import ecoElectricIcon from "../assets/images/icon-co.png";
 import brain from "../assets/images/brain-circuit.png";
-import myLogo from "../assets/images/myLogo.png";
+import classNames from "classnames";
 
 const Sidebar = () => {
+  const [isCollapsed, setIsCollapsed] = useState(true); // State untuk mengecilkan sidebar
+  // Fungsi toggle
+  const toggleSidebar = () => {
+    setIsCollapsed(!isCollapsed);
+  };
+
   return (
     <div
-      className="w-64 h-full bg-white rounded-2xl p-6 shadow-xl flex flex-col items-start"
+      className={`h-full bg-white rounded-2xl shadow-xl flex flex-col items-center transition-all duration-300 ${
+        isCollapsed ? "w-20 p-2" : "w-60 p-6"
+      }`}
       style={{
-        background: "linear-gradient(to bottom, #f8f9fa, #e9ecef)", // Subtle gradient
+        background: "linear-gradient(to bottom, #f8f9fa, #e9ecef)",
       }}
     >
-      {/* Sidebar Header */}
-      <br />
-
-      <div className="w-full rounded-md flex items-center justify-center text-white font-bold">
-        <img
-          src={myLogo}
-          alt="Energy Insights"
-          className="w-40 h-70"
-          style={{
-            objectFit: "contain",
-          }}
-        />
+      {/* Toggle Button with Hamburger Animation */}
+      <div
+        className={classNames(
+          "cursor-pointer tham tham-e-arrow tham-w-8 tham-h-8 mt-8", // Tambahkan mt-8 di sini
+          {
+            "tham-active": !isCollapsed, // Aktifkan animasi burger jika collapsed
+          }
+        )}
+        onClick={toggleSidebar}
+      >
+        <div className="tham-box">
+          <div className="tham-inner" />
+        </div>
       </div>
 
+      {/* Sidebar Header */}
+      <div
+        className={`w-full flex items-center justify-center text-white font-bold ${
+          isCollapsed ? "hidden" : "block"
+        }`}
+      ></div>
+
       {/* Menu Section */}
-      <br />
-      <br />
-      <div className="mb-8 w-full">
-        <span className="text-md text-blue-700 font-semibold block mb-3 ">
+      <div className="mt-10 w-full">
+        {" "}
+        {/* Tambahkan mt-10 untuk memberikan jarak */}
+        <span
+          className={`text-md text-blue-700 font-semibold block mb-3 ${
+            isCollapsed ? "hidden" : "block"
+          }`}
+        >
           Main Menu
         </span>
         <div className="w-full flex items-center mb-4 hover:bg-blue-100 rounded-md p-2 cursor-pointer transition">
@@ -40,14 +60,14 @@ const Sidebar = () => {
                 src={ecoElectricIcon}
                 alt="Energy Insights"
                 className="w-11 h-11"
-                style={{
-                  objectFit: "contain",
-                }}
+                style={{ objectFit: "contain" }}
               />
             </div>
-            <span className="ml-3 text-blue-800 font-medium text-sm">
-              Energy Mode
-            </span>
+            {!isCollapsed && (
+              <span className="ml-3 text-blue-800 font-medium text-sm">
+                Energy Mode
+              </span>
+            )}
           </Link>
         </div>
         <div className="w-full flex items-center mb-4 hover:bg-blue-100 rounded-md p-2 cursor-pointer transition">
@@ -57,22 +77,22 @@ const Sidebar = () => {
                 src={brain}
                 alt="Energy Insights"
                 className="w-11 h-11"
-                style={{
-                  objectFit: "contain",
-                }}
+                style={{ objectFit: "contain" }}
               />
             </div>
-            <span className="ml-3 text-blue-800 font-medium text-sm">
-              Chat with AI
-            </span>
+            {!isCollapsed && (
+              <span className="ml-3 text-blue-800 font-medium text-sm">
+                Chat with AI
+              </span>
+            )}
           </Link>
         </div>
       </div>
 
       {/* Footer Section */}
-      <div className="mt-auto w-full">
+      <div className={`mt-auto w-full ${isCollapsed ? "hidden" : "block"}`}>
         <span className="text-xs text-blue-500 font-semibold block mb-2">
-          © 2024 Energy Dashboard
+          © 2024 Tailored Ai and Power System
         </span>
       </div>
     </div>

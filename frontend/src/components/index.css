@@ -1,3 +1,71 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer utilities {
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-bounce {
+    animation: bounce 1s infinite;
+  }
+
+  @keyframes bounce {
+    0%,
+    100% {
+      transform: translateY(-5px);
+    }
+    50% {
+      transform: translateY(0);
+    }
+  }
+
+  /* Tambahan: Fade-in dan blur */
+  @keyframes fadeInScale {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  .animate-fade-in {
+    animation: fadeInScale 0.3s ease-out;
+  }
+
+  .animate-fade-in-up {
+    animation: fadeInScale 1.6s ease-out;
+  }
+
+  .blur-background {
+    backdrop-filter: blur(8px); /* Efek blur */
+    background-color: rgba(0, 0, 0, 0.4); /* Semi-transparent black */
+  }
+
+  /* Tambahan: Fade-in-left */
+  @keyframes fade-in-left {
+    from {
+      opacity: 0;
+      transform: translateX(-30px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  .animate-fade-in-left {
+    animation: fade-in-left 0.5s ease-out;
+  }
+}

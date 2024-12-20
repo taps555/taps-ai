@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	"a21hc3NpZ25tZW50/service"
 
@@ -36,7 +37,6 @@ func init() {
 
 func saveSessionData(w http.ResponseWriter, r *http.Request, table map[string][]string) error {
 	session := getSession(r)
-	// Simpan tabel dalam sesi
 	session.Values["table"] = table
 	session.Save(r, w)
 	return nil
@@ -66,15 +66,18 @@ func main() {
 	router := mux.NewRouter()
 
 	router.HandleFunc("/upload", func(w http.ResponseWriter, r *http.Request) {
-		r.Body = http.MaxBytesReader(w, r.Body, 10<<20) // Batasi ukuran file 10 MB
-
-		err := r.ParseMultipartForm(10 << 20) // 10 MB
+		r.Body = http.MaxBytesReader(w, r.Body, 10<<10) // 10 KB
+	
+		err := r.ParseMultipartForm(10 << 10) // 10 KB
 		if err != nil {
-			http.Error(w, "Unable to parse form data", http.StatusBadRequest)
+			if strings.Contains(err.Error(), "http: request body too large") {
+				http.Error(w, "Uploaded file exceeds 10 KB limit.", http.StatusRequestEntityTooLarge)
+				return
+			}
+			http.Error(w, "Unable to parse form data.", http.StatusBadRequest)
 			return
 		}
 	
-		// Ambil file yang diunggah
 		file, handler, err := r.FormFile("file")
 		if err != nil {
 			http.Error(w, "Gagal membaca file yang diunggah", http.StatusBadRequest)
@@ -82,43 +85,42 @@ func main() {
 		}
 		defer file.Close()
 	
+		if handler.Size > 10*1024 { // 10 KB
+			http.Error(w, "Uploaded file exceeds 10 KB limit.", http.StatusRequestEntityTooLarge)
+			return
+		}
+	
 		log.Printf("Uploaded File Name: %s\n", handler.Filename)
 		log.Printf("Uploaded File Size: %d\n", handler.Size)
 	
-		// Baca file CSV menggunakan csv.NewReader
 		reader := csv.NewReader(file)
-		records, err := reader.ReadAll() // Baca seluruh isi file CSV
+		records, err := reader.ReadAll() // Read the entire CSV file
 		if err != nil {
 			log.Printf("Error reading CSV file: %v\n", err)
 			http.Error(w, "Invalid CSV file", http.StatusBadRequest)
 			return
 		}
 	
-		// Proses data CSV menjadi tabel JSON
 		table := make(map[string][]string)
-		headers := records[0] // Baris pertama sebagai header
+		headers := records[0] // The first row as headers
 		for _, row := range records[1:] {
 			for i, value := range row {
 				table[headers[i]] = append(table[headers[i]], value)
 			}
 		}
 	
-		// Simpan tabel ke sesi
 		if err := saveSessionData(w, r, table); err != nil {
 			log.Printf("Error saving session data: %v\n", err)
 			http.Error(w, "Gagal menyimpan data ke sesi", http.StatusInternalServerError)
 			return
 		}
 	
-		// Ambil pertanyaan dari form
 		question := r.FormValue("question")
 		if question == "" {
 			http.Error(w, "Pertanyaan tidak boleh kosong", http.StatusBadRequest)
 			return
 		}
-
-
-		// Simpan pertanyaan dalam sesi
+	
 		session := getSession(r)
 		session.Values["question"] = question
 		err = session.Save(r, w)
@@ -127,7 +129,6 @@ func main() {
 			return
 		}
 	
-		// Ambil data tabel dari sesi
 		sessionTable, err := getSessionData(r)
 		if err != nil {
 			log.Printf("Error retrieving session data: %v\n", err)
@@ -135,17 +136,15 @@ func main() {
 			return
 		}
 	
-		// Proses tabel dan pertanyaan
 		tapasResponse, err := fileService.ProcessTableData(sessionTable, question)
 		if err != nil {
 			log.Printf("Error processing table data: %v\n", err)
 			http.Error(w, "Gagal memproses data", http.StatusInternalServerError)
 			return
 		}
-
+	
 		log.Printf("TapasResponse: %+v\n", tapasResponse)
 	
-		// Kirim respons dengan data yang diformat
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"status":  "sukses",
@@ -158,25 +157,24 @@ func main() {
 			},
 		})
 	}).Methods("POST")
+	
 
 	router.HandleFunc("/chat", func(w http.ResponseWriter, r *http.Request) { 
 		var requestData struct {
 			Query string `json:"query"`
 		}
-	
-		// Mengambil data dari request body
+
 		if err := json.NewDecoder(r.Body).Decode(&requestData); err != nil {
 			http.Error(w, "Invalid request body", http.StatusBadRequest)
 			return
 		}
 	
-		// Memastikan query tidak kosong
+	
 		if requestData.Query == "" {
 			http.Error(w, "Query is required", http.StatusBadRequest)
 			return
 		}
 	
-		// Menggunakan layanan AI untuk mendapatkan respons
 		token := os.Getenv("HUGGINGFACE_TOKEN")
 		answer, err := aiService.ChatWithAI("", requestData.Query, token)
 		if err != nil {
@@ -184,7 +182,7 @@ func main() {
 			return
 		}
 	
-		// Menyiapkan data respons dengan query dan answer terpisah
+
 		responseData := struct {
 			Query  string `json:"query"`
 			Answer string `json:"answer"`
@@ -193,7 +191,6 @@ func main() {
 			Answer: answer,
 		}
 	
-		// Mengirimkan respons kembali ke klien dalam format JSON
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(responseData)
@@ -206,7 +203,7 @@ func main() {
 		AllowedOrigins:   []string{"http://localhost:3000"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Content-Type", "Authorization"},
-		AllowCredentials: true,  // Mengizinkan cookies
+		AllowCredentials: true, 
 	}).Handler(router)
 	// Start the server
 	port := os.Getenv("PORT")
@@ -216,3 +213,7 @@ func main() {
 	log.Printf("Server running on port %s\n", port)
 	log.Fatal(http.ListenAndServe(":"+port, corsHandler))
 }
+
+
+
+

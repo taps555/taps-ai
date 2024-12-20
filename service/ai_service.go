@@ -84,7 +84,9 @@ func (s *AIService) ChatWithAI(context, query, token string) (string, error) {
 	payload := map[string]interface{}{
 		"inputs": context + "\n" + query,
 		"parameters": map[string]interface{}{
-			"max_new_tokens": 1000, // Tentukan jumlah token baru yang diinginkan
+			"max_new_tokens": 550,  // Menentukan jumlah token maksimal untuk respons
+			"temperature":    0.7,  // Menentukan suhu untuk variasi respons//
+			"streaming":      true, // Mengaktifkan streaming untuk respons bertahap
 		},
 	}
 
