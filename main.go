@@ -50,7 +50,7 @@ func getSessionData(r *http.Request) (map[string][]string, error) {
 	return session.Values["table"].(map[string][]string), nil
 }
 
-<<<<<<< HEAD
+
 func processTableData(table map[string][]string) (model.TapasResponse, error) {
 	// Misalnya kita akan menghitung total energi berdasarkan "Appliance"
 	applianceEnergy := make(map[string]float64)
@@ -87,8 +87,7 @@ func processTableData(table map[string][]string) (model.TapasResponse, error) {
 
 
 
-=======
->>>>>>> add-question-with-question-final-FE-2
+
 
 func main() {
 	err := godotenv.Load()
