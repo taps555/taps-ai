@@ -1,16 +1,15 @@
 package main
 
 import (
+	"encoding/csv"
 	"encoding/gob"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"os"
-	"strconv"
+	"strings"
 
-	"a21hc3NpZ25tZW50/model"
 	"a21hc3NpZ25tZW50/service"
 
 	"github.com/gorilla/mux"
@@ -19,13 +18,11 @@ import (
 	"github.com/rs/cors"
 )
 
-// Initialize the services
-var fileService = &service.FileService{}
 var aiService = &service.AIService{Client: &http.Client{}}
-// Gunakan nama kunci yang lebih deskriptif untuk sesi.
 var store = sessions.NewCookieStore([]byte("super-secret-key"))	
+var fileService = &service.FileService{}
 
-// Fungsi untuk mendapatkan sesi
+
 func getSession(r *http.Request) *sessions.Session {
 	session, err := store.Get(r, "super-secret-key")	
 	if err != nil {
@@ -35,20 +32,16 @@ func getSession(r *http.Request) *sessions.Session {
 }
 
 func init() {
-	// Register the map type before using it in the session
 	gob.Register(map[string][]string{})
 }
 
-// Fungsi untuk mengambil data sesi
 func saveSessionData(w http.ResponseWriter, r *http.Request, table map[string][]string) error {
 	session := getSession(r)
-	// Simpan tabel dalam sesi
 	session.Values["table"] = table
 	session.Save(r, w)
 	return nil
 }
 
-// Fungsi untuk mengambil data dari sesi
 func getSessionData(r *http.Request) (map[string][]string, error) {
 	session, _ := store.Get(r, "super-secret-key")
 	if session.Values["table"] == nil {
@@ -57,6 +50,7 @@ func getSessionData(r *http.Request) (map[string][]string, error) {
 	return session.Values["table"].(map[string][]string), nil
 }
 
+<<<<<<< HEAD
 func processTableData(table map[string][]string) (model.TapasResponse, error) {
 	// Misalnya kita akan menghitung total energi berdasarkan "Appliance"
 	applianceEnergy := make(map[string]float64)
@@ -93,70 +87,87 @@ func processTableData(table map[string][]string) (model.TapasResponse, error) {
 
 
 
+=======
+>>>>>>> add-question-with-question-final-FE-2
 
 func main() {
-	// Load the .env file
 	err := godotenv.Load()
 	if err != nil {
 		log.Fatal("Error loading .env file")
 	}
 
-	// Retrieve the Hugging Face token from the environment variables
 	token := os.Getenv("HUGGINGFACE_TOKEN")
 	if token == "" {
 		log.Fatal("HUGGINGFACE_TOKEN is not set in the .env file")
 	}
 
-	
-	// Set up the router
+
 	router := mux.NewRouter()
 
 	router.HandleFunc("/upload", func(w http.ResponseWriter, r *http.Request) {
-		// Ambil sesi pengguna
-		session := getSession(r)
-		log.Println("Table from session:", session)
+		r.Body = http.MaxBytesReader(w, r.Body, 10<<10) // 10 KB
 	
-		// Tentukan pengaturan sesi
-		store.Options = &sessions.Options{
-			Path:     "/",
-			MaxAge:   3600,
-			HttpOnly: true,
-			SameSite: http.SameSiteNoneMode,
-			Secure:   false, // Nonaktifkan Secure untuk pengujian lokal
+		err := r.ParseMultipartForm(10 << 10) // 10 KB
+		if err != nil {
+			if strings.Contains(err.Error(), "http: request body too large") {
+				http.Error(w, "Uploaded file exceeds 10 KB limit.", http.StatusRequestEntityTooLarge)
+				return
+			}
+			http.Error(w, "Unable to parse form data.", http.StatusBadRequest)
+			return
 		}
 	
-		// Parse file yang diunggah
-		file, _, err := r.FormFile("file")
+		file, handler, err := r.FormFile("file")
 		if err != nil {
 			http.Error(w, "Gagal membaca file yang diunggah", http.StatusBadRequest)
 			return
 		}
 		defer file.Close()
 	
-		// Membaca konten file
-		fileContent, err := io.ReadAll(file)
-		if err != nil {
-			http.Error(w, "Gagal membaca isi file", http.StatusInternalServerError)
+		if handler.Size > 10*1024 { // 10 KB
+			http.Error(w, "Uploaded file exceeds 10 KB limit.", http.StatusRequestEntityTooLarge)
 			return
 		}
 	
-		// log.Println("File content:", fileContent)
+		log.Printf("Uploaded File Name: %s\n", handler.Filename)
+		log.Printf("Uploaded File Size: %d\n", handler.Size)
 	
-		// Proses file menjadi tabel
-		table, err := fileService.ProcessFile(string(fileContent))
+		reader := csv.NewReader(file)
+		records, err := reader.ReadAll() // Read the entire CSV file
 		if err != nil {
-			http.Error(w, "Gagal memproses file: "+err.Error(), http.StatusBadRequest)
+			log.Printf("Error reading CSV file: %v\n", err)
+			http.Error(w, "Invalid CSV file", http.StatusBadRequest)
 			return
 		}
 	
-		// Simpan tabel dalam sesi
+		table := make(map[string][]string)
+		headers := records[0] // The first row as headers
+		for _, row := range records[1:] {
+			for i, value := range row {
+				table[headers[i]] = append(table[headers[i]], value)
+			}
+		}
+	
 		if err := saveSessionData(w, r, table); err != nil {
 			log.Printf("Error saving session data: %v\n", err)
 			http.Error(w, "Gagal menyimpan data ke sesi", http.StatusInternalServerError)
 			return
 		}
 	
-		// Ambil data tabel dari sesi menggunakan getSessionData
+		question := r.FormValue("question")
+		if question == "" {
+			http.Error(w, "Pertanyaan tidak boleh kosong", http.StatusBadRequest)
+			return
+		}
+	
+		session := getSession(r)
+		session.Values["question"] = question
+		err = session.Save(r, w)
+		if err != nil {
+			http.Error(w, "Gagal menyimpan pertanyaan ke sesi", http.StatusInternalServerError)
+			return
+		}
+	
 		sessionTable, err := getSessionData(r)
 		if err != nil {
 			log.Printf("Error retrieving session data: %v\n", err)
@@ -164,303 +175,74 @@ func main() {
 			return
 		}
 	
-		// Proses data tabel dan siapkan format respons
-		tapasResponse, err := processTableData(sessionTable)
+		tapasResponse, err := fileService.ProcessTableData(sessionTable, question)
 		if err != nil {
 			log.Printf("Error processing table data: %v\n", err)
 			http.Error(w, "Gagal memproses data", http.StatusInternalServerError)
 			return
 		}
 	
-		// Kirim respons dengan data yang diformat
+		log.Printf("TapasResponse: %+v\n", tapasResponse)
+	
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"status":  "sukses",
-			"message": "File berhasil diproses",
+			"message": "File berhasil diproses dan pertanyaan dijawab.",
 			"data": map[string]interface{}{
-				"answer": tapasResponse.Answer,
+				"answer":      tapasResponse.Answer,
 				"coordinates": tapasResponse.Coordinates,
-				"cells": tapasResponse.Cells,
-				"aggregator": tapasResponse.Aggregator,
+				"cells":       tapasResponse.Cells,
+				"aggregator":  tapasResponse.Aggregator,
 			},
 		})
 	}).Methods("POST")
 	
 
-
-
-
-
-
-
-
-
-	//2
-	// router.HandleFunc("/upload", func(w http.ResponseWriter, r *http.Request) {
-	// 	// Ambil sesi pengguna
-	// 	session := getSession(r)
-	// 	log.Println("Table from session:", session)
-
-	// 	// Tentukan pengaturan sesi
-	// 	store.Options = &sessions.Options{
-	// 		Path:     "/",
-	// 		MaxAge:   3600,
-	// 		HttpOnly: true,
-	// 		SameSite: http.SameSiteNoneMode,
-	// 		Secure:   false, // Nonaktifkan Secure untuk pengujian lokal
-	// 	}
-
-	// 	// Parse file yang diunggah
-	// 	file, _, err := r.FormFile("file")
-	// 	if err != nil {
-	// 		http.Error(w, "Gagal membaca file yang diunggah", http.StatusBadRequest)
-	// 		return
-	// 	}
-	// 	defer file.Close()
-
-	// 	// Membaca konten file
-	// 	fileContent, err := io.ReadAll(file)
-	// 	if err != nil {
-	// 		http.Error(w, "Gagal membaca isi file", http.StatusInternalServerError)
-	// 		return
-	// 	}
-
-	// 	log.Println("File content:", fileContent)
-
-	// 	// Proses file menjadi tabel
-	// 	// Misalnya fileService.ProcessFile mengembalikan map[string][]string
-	// 	table := make(map[string][]string)
-	// 	// Implementasi pengolahan file sesuai dengan logika yang Anda inginkan
-	// 	// table, err := fileService.ProcessFile(string(fileContent)) 
-
-	// 	// Simpan tabel dalam sesi
-	// 	if err := saveSessionData(w, r, table); err != nil {
-	// 		log.Printf("Error saving session data: %v\n", err)
-	// 		http.Error(w, "Gagal menyimpan data ke sesi", http.StatusInternalServerError)
-	// 		return
-	// 	}
-
-	// 	// Ambil data tabel dari sesi menggunakan getSessionData
-	// 	sessionTable, err := getSessionData(r)
-	// 	if err != nil {
-	// 		log.Printf("Error retrieving session data: %v\n", err)
-	// 		http.Error(w, "Gagal mengambil data sesi", http.StatusInternalServerError)
-	// 		return
-	// 	}
-
-	// 	// Proses data tabel dan siapkan format respons
-	// 	tapasResponse, err := processTableData(sessionTable)
-	// 	if err != nil {
-	// 		log.Printf("Error processing table data: %v\n", err)
-	// 		http.Error(w, "Gagal memproses data", http.StatusInternalServerError)
-	// 		return
-	// 	}
-
-	// 	// Kirim respons dengan data yang diformat
-	// 	w.Header().Set("Content-Type", "application/json")
-	// 	json.NewEncoder(w).Encode(map[string]interface{}{
-	// 		"status":  "sukses",
-	// 		"message": "File berhasil diproses",
-	// 		"data": map[string]interface{}{
-	// 			"answer": tapasResponse.Answer,
-	// 			"coordinates": tapasResponse.Coordinates,
-	// 			"cells": tapasResponse.Cells,
-	// 			"aggregator": tapasResponse.Aggregator,
-	// 		},
-	// 	})
-	// }).Methods("POST")
-	
-	
-	
-	
-	
-	
-	
-	
-
-	// File upload endpoint
-	// router.HandleFunc("/upload", func(w http.ResponseWriter, r *http.Request) {
-	// 	// Ambil sesi pengguna
-	// 	session := getSession(r)
-	
-	// 	// Tentukan pengaturan sesi (letakkan sebelum penyimpanan sesi)
-	// 	store.Options = &sessions.Options{
-	// 		Path:     "/",
-	// 		MaxAge:   3600,
-	// 		HttpOnly: true,
-	// 		SameSite: http.SameSiteNoneMode,
-	// 		Secure:   false, // Nonaktifkan Secure untuk pengujian lokal
-	// 	}
-	
-	// 	// Parse file yang diunggah
-	// 	file, _, err := r.FormFile("file")
-	// 	if err != nil {
-	// 		http.Error(w, "Gagal membaca file yang diunggah", http.StatusBadRequest)
-	// 		return
-	// 	}
-	// 	defer file.Close()
-	
-	// 	// Membaca konten file
-	// 	fileContent, err := io.ReadAll(file)
-	// 	if err != nil {
-	// 		http.Error(w, "Gagal membaca isi file", http.StatusInternalServerError)
-	// 		return
-	// 	}
-	
-	// 	// Proses file menjadi tabel
-	// 	table, err := fileService.ProcessFile(string(fileContent))
-	// 	if err != nil {
-	// 		http.Error(w, "Gagal memproses file: "+err.Error(), http.StatusBadRequest)
-	// 		return
-	// 	}
-	
-	// 	// Simpan tabel dalam sesi
-	// 	if err := session.Save(r, w); err != nil {
-	// 		log.Printf("Error saving session: %v\n", err)  // Log error lebih rinci
-	// 		http.Error(w, "Gagal menyimpan sesi", http.StatusInternalServerError)
-	// 		return
-	// 	}
-	
-	// 	// Ambil query dari parameter URL (opsional)
-	// 	query := r.URL.Query().Get("query")
-	// 	if query == "" {
-	// 		http.Error(w, "Query diperlukan untuk analisis", http.StatusBadRequest)
-	// 		return
-	// 	}
-	
-	// 	// Analisis tabel menggunakan TAPAS
-	// 	token := os.Getenv("HUGGINGFACE_TOKEN")
-
-	// 	answer, err := aiService.AnalyzeData(table, query, token)
-	// 	if err != nil {
-	// 		http.Error(w, "Gagal menganalisis tabel: "+err.Error(), http.StatusInternalServerError)
-	// 		return
-	// 	}
-	// 	// log.Println("ini resuklt",answer)
-	
-	// 	// Kirim jawaban ke klien
-	// 	// Format ulang jawaban agar lebih menarik
-	// 		// Gunakan 'answer' langsung, karena 'result' tidak tersedia
-	// 			formattedAnswer := fmt.Sprintf("Hasil analisis: %s", answer)
-
-	// 			// Gunakan formattedAnswer dalam respons
-	// 			w.Header().Set("Content-Type", "application/json")
-	// 			json.NewEncoder(w).Encode(map[string]interface{}{
-	// 				"status":  "success",
-	// 				"message": "File berhasil diproses",
-	// 				"data": map[string]interface{}{
-	// 					"answer": formattedAnswer, // Jawaban yang diformat
-	// 				},
-	// 			})
-
-
-	
-	// 	// log.Printf("Response headers: %v\n", w.Header())
-	// }).Methods("POST")
-	
-	
-
-	
-	
-	
-	
-
-
-
-
-	router.HandleFunc("/chat", func(w http.ResponseWriter, r *http.Request) {
-		// Parse the query from the request
+	router.HandleFunc("/chat", func(w http.ResponseWriter, r *http.Request) { 
 		var requestData struct {
 			Query string `json:"query"`
 		}
+
 		if err := json.NewDecoder(r.Body).Decode(&requestData); err != nil {
 			http.Error(w, "Invalid request body", http.StatusBadRequest)
 			return
 		}
-
-		// Ensure the user has provided a query
+	
+	
 		if requestData.Query == "" {
 			http.Error(w, "Query is required", http.StatusBadRequest)
 			return
 		}
-
-		// Use AI service to get the response
+	
 		token := os.Getenv("HUGGINGFACE_TOKEN")
-		response, err := aiService.ChatWithAI("", requestData.Query, token)
+		answer, err := aiService.ChatWithAI("", requestData.Query, token)
 		if err != nil {
 			http.Error(w, "Error processing the query: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
+	
 
-		// Send the response back to the client
+		responseData := struct {
+			Query  string `json:"query"`
+			Answer string `json:"answer"`
+		}{
+			Query:  requestData.Query,
+			Answer: answer,
+		}
+	
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(response)
+		json.NewEncoder(w).Encode(responseData)
 	}).Methods("POST")
-
-
-
-
-
-
-
-
-
-	// router.HandleFunc("/check-session", func(w http.ResponseWriter, r *http.Request) {
-	// 	session := getSession(r)
-	// 	// Cek apakah data 'table' ada dalam sesi
-	// 	table, ok := session.Values["table"]
-	// 	if !ok {
-	// 		http.Error(w, "Data tabel tidak ditemukan dalam sesi", http.StatusBadRequest)
-	// 		return
-	// 	}
 	
-	// 	w.Header().Set("Content-Type", "application/json")
-	// 	json.NewEncoder(w).Encode(map[string]interface{}{
-	// 		"table": table,
-	// 	})
-	// }).Methods("GET")
 	
 
-	// Chat endpoint
-	// router.HandleFunc("/chat", func(w http.ResponseWriter, r *http.Request) {
-	// 	// Retrieve context and query from the request body
-	// 	var request struct {
-	// 		Context string `json:"context"`
-	// 		Query   string `json:"query"`
-	// 	}
-	// 	err := json.NewDecoder(r.Body).Decode(&request)
-	// 	if err != nil {
-	// 		http.Error(w, "Invalid request body", http.StatusBadRequest)
-	// 		return
-	// 	}
 
-	// 	// Retrieve the session and get the table data
-	// 	session := getSession(r)
-	// 	table, ok := session.Values["table"].(map[string][]string)
-	// 	if !ok {
-	// 		http.Error(w, "No table data found in session", http.StatusBadRequest)
-	// 		return
-	// 	}
-
-	// 	// Analyze the data using AI service
-	// 	answer, err := aiService.AnalyzeData(table, request.Query, token)
-	// 	if err != nil {
-	// 		http.Error(w, err.Error(), http.StatusInternalServerError)
-	// 		return
-	// 	}
-
-	// 	// Return the response
-	// 	w.Header().Set("Content-Type", "application/json")
-	// 	w.Write([]byte(`{"generated_text": "` + answer + `"}`))
-	// }).Methods("POST")
-
-	// Enable CORS
 	corsHandler := cors.New(cors.Options{
 		AllowedOrigins:   []string{"http://localhost:3000"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Content-Type", "Authorization"},
-		AllowCredentials: true,  // Mengizinkan cookies
+		AllowCredentials: true, 
 	}).Handler(router)
 	// Start the server
 	port := os.Getenv("PORT")
@@ -470,3 +252,7 @@ func main() {
 	log.Printf("Server running on port %s\n", port)
 	log.Fatal(http.ListenAndServe(":"+port, corsHandler))
 }
+
+
+
+

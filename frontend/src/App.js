@@ -1,173 +1,132 @@
-import React, { useState } from "react";
-import axios from "axios";
+import React, { useState, useEffect } from "react";
+import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
+import Dashboard from "./components/dashboard";
+import ChatWithAI from "./components/chatAi";
 
-function App() {
-  const [file, setFile] = useState(null);
-  const [query, setQuery] = useState("");
-  const [response, setResponse] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(false);
+const LoadingScreen = () => (
+  <div className="flex items-center justify-center h-screen bg-gradient-to-b from-blue-800 to-blue-500">
+    <div className="text-white text-center space-y-4">
+      <h1 className="text-3xl font-bold animate-bounce">
+        Hallo, Selamat Datang di <span className="text-yellow-400">TAPS</span>
+      </h1>
+      <p className="text-lg">Mengoptimalkan Energi untuk Masa Depan</p>
+      <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-yellow-400 mx-auto"></div>
+    </div>
+  </div>
+);
 
-  const handleFileChange = (e) => {
-    setFile(e.target.files[0]);
-  };
+const App = () => {
+  const [isLoading, setIsLoading] = useState(true);
+  const [showGuide, setShowGuide] = useState(false);
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [showDashboardPopup, setShowDashboardPopup] = useState(false);
 
-  const handleUpload = async () => {
-    if (!file) {
-      setError("Tidak ada file yang dipilih!");
-      return;
+  const slides = [
+    {
+      title: "Upload CSV Anda!",
+      description:
+        "Mulai dengan mengunggah file CSV Anda. Pastikan formatnya sesuai, dan kami akan membantu menganalisis energi perangkat Anda secara efisien.",
+      image: "/images/csv.png", // Ganti dengan path gambar Anda
+    },
+    {
+      title: "Input Pertanyaan Anda",
+      description:
+        "Gunakan kolom input untuk menanyakan apa saja terkait konsumsi energi. Anda juga dapat memilih pertanyaan yang disarankan.",
+      image: "/images/image.png", // Ganti dengan path gambar Anda
+    },
+    {
+      title: "Gunakan Chat AI",
+      description:
+        "Berinteraksi dengan AI untuk mendapatkan analisis canggih dan jawaban atas pertanyaan Anda tentang konsumsi energi.",
+      image: "/images/Screenshot 2024-12-18 172508.png", // Ganti dengan path gambar Anda
+    },
+  ];
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+      setShowGuide(true);
+    }, 4000);
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  const nextSlide = () => {
+    if (currentSlide < slides.length - 1) {
+      setCurrentSlide(currentSlide + 1);
+    } else {
+      setShowGuide(false); // Tutup panduan jika slide terakhir
+      setShowDashboardPopup(true);
     }
+  };
 
-    const formData = new FormData();
-    formData.append("file", file);
-
-    try {
-      setLoading(true);
-      const res = await axios.post("http://localhost:8080/upload", formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      });
-
-      // Handle successful response
-      console.log("Upload respons:", res.data);
-      setResponse(res.data.data); // Set response data from backend
-      setLoading(false);
-    } catch (error) {
-      console.error("Error uploading file:", error);
-      setError("Terjadi kesalahan saat meng-upload file, coba lagi.");
-      setLoading(false);
+  const previousSlide = () => {
+    if (currentSlide > 0) {
+      setCurrentSlide(currentSlide - 1);
     }
   };
 
-  const handleChat = async () => {
-    console.log("Sending query:", query); // Debugging output
-
-    try {
-      const res = await axios.post("http://localhost:8080/chat", { query });
-      if (res.data && res.data.generated_text) {
-        console.log("Respons chat:", res.data);
-        setResponse(res.data.generated_text); // Memperbarui respons dengan teks yang dihasilkan
-      } else {
-        setError("Respons dari server tidak sesuai.");
-      }
-      setLoading(false); // Adjust based on backend response
-    } catch (error) {
-      console.error("Error querying chat:", error);
-    }
-  };
-
-  if (loading) return <div>Loading...</div>;
-
-  const renderResponseData = () => {
-    const { aggregator, answer, cells, coordinates } = response;
-
-    return (
-      <div>
-        <p>
-          <strong>Answer:</strong> {answer}
-        </p>
-        <p>
-          <strong>Aggregator:</strong> {aggregator}
-        </p>
-        <p>
-          <strong>Cells:</strong>{" "}
-          {cells && cells.length > 0
-            ? cells.join(", ")
-            : "No cells data available"}
-        </p>
-        <p>
-          <strong>Coordinates:</strong>{" "}
-          {coordinates && coordinates.length > 0
-            ? coordinates
-                .map((coord) => `(${coord[0]}, ${coord[1]})`)
-                .join(", ")
-            : "No coordinates data available"}
-        </p>
-      </div>
-    );
-  };
+  if (isLoading) {
+    return <LoadingScreen />;
+  }
 
   return (
-    <div
-      style={{
-        maxWidth: "600px",
-        margin: "0 auto",
-        padding: "20px",
-        textAlign: "center",
-        fontFamily: "Arial, sans-serif",
-      }}
-    >
-      <h1 style={{ color: "#333", marginBottom: "20px" }}>
-        Data Analysis Chatbot
-      </h1>
-      <div style={{ marginBottom: "20px" }}>
-        <input
-          type="file"
-          onChange={handleFileChange}
-          style={{
-            padding: "10px",
-            marginRight: "10px",
-            border: "1px solid #ccc",
-            borderRadius: "4px",
-          }}
+    <Router>
+      {showGuide && (
+        <div className="fixed inset-0 backdrop-blur-md bg-black bg-opacity-40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-8 w-11/12 max-w-xl shadow-lg relative animate-fade-in">
+            {/* Konten Slide */}
+            <div className="text-center">
+              <h2 className="text-2xl font-bold mb-4 text-blue-800">
+                {slides[currentSlide].title}
+              </h2>
+              <p className="text-gray-700 mb-4">
+                {slides[currentSlide].description}
+              </p>
+              <img
+                src={slides[currentSlide].image}
+                alt={slides[currentSlide].title}
+                className="w-full h-48 object-contain mb-6"
+              />
+            </div>
+
+            {/* Tombol Navigasi */}
+            <div className="flex justify-between">
+              {currentSlide > 0 && (
+                <button
+                  onClick={previousSlide}
+                  className="bg-gray-300 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-400 transition"
+                >
+                  Kembali
+                </button>
+              )}
+              <button
+                onClick={nextSlide}
+                className={`ml-auto px-4 py-2 rounded-lg text-white ${
+                  currentSlide === slides.length - 1
+                    ? "bg-green-500 hover:bg-green-600"
+                    : "bg-blue-500 hover:bg-blue-600"
+                } transition`}
+              >
+                {currentSlide === slides.length - 1
+                  ? "Mulai Aplikasi"
+                  : "Lanjut"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <Routes>
+        <Route
+          path="/"
+          element={<Dashboard showPopup={showDashboardPopup} />}
         />
-        <button
-          onClick={handleUpload}
-          style={{
-            padding: "10px 20px",
-            backgroundColor: "#007bff",
-            color: "white",
-            border: "none",
-            borderRadius: "4px",
-            cursor: "pointer",
-          }}
-        >
-          Upload and Analyze
-        </button>
-      </div>
-      <div style={{ marginBottom: "20px" }}>
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Ask a question..."
-          style={{
-            padding: "10px",
-            marginRight: "10px",
-            border: "1px solid #ccc",
-            borderRadius: "4px",
-            width: "calc(100% - 140px)",
-          }}
-        />
-        <button
-          onClick={handleChat}
-          style={{
-            padding: "10px 20px",
-            backgroundColor: "#007bff",
-            color: "white",
-            border: "none",
-            borderRadius: "4px",
-            cursor: "pointer",
-          }}
-        >
-          Chat
-        </button>
-      </div>
-      <div
-        style={{
-          marginTop: "20px",
-          padding: "10px",
-          border: "1px solid #ccc",
-          borderRadius: "4px",
-          backgroundColor: "#f9f9f9",
-        }}
-      >
-        <h2>Response</h2>
-        {response ? renderResponseData() : <p>Hallo silahkan upload file dataset kamu</p>}
-      </div>
-    </div>
+
+        <Route path="/chat-with-ai" element={<ChatWithAI />} />
+      </Routes>
+    </Router>
   );
-}
+};
 
 export default App;

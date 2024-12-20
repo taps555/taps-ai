@@ -57,26 +57,27 @@ Untuk Frontend tidak dinilai, jadi silahkan berkreasi sekreatif mungkin. Fronten
 Kalian perlu membuat HuggingFace Token terlebih dahulu untuk bisa menggunakan model AI yang terdapat di Huggingface. Token ini kemudian akan kalian simpan pada file .env
 
 Untuk pengerjaan, kalian diberikan file berikut:
-* main.go - Berisi kode utama untuk aplikasi.
-* model/model.go - Berisi struktur data yang digunakan pada aplikasi.
-* repository/fileRepository.go - Berisi process terkait pembacaan, penulisan dan pengecekan file yang diupload.
-* service/ai_service.go - Berisi kode untuk melakukan interaksi dengan AI model.
-* service/file_service.go - Berisi kode untuk melakukan upload file.
+
+- main.go - Berisi kode utama untuk aplikasi.
+- model/model.go - Berisi struktur data yang digunakan pada aplikasi.
+- repository/fileRepository.go - Berisi process terkait pembacaan, penulisan dan pengecekan file yang diupload.
+- service/ai_service.go - Berisi kode untuk melakukan interaksi dengan AI model.
+- service/file_service.go - Berisi kode untuk melakukan upload file.
 
 Berikut penjelasan mengenai bagian apa yang kalian harus kerjakan.
 **main.go**
-Pada file main.go maka kalian wajib menyelesaikan dua handler yang tersedia, untuk endpoint `/upload` dan `/chat`. Keduanya akan menghasilkan output berupa JSON dengan struktur berikut: {"status": "success",	"answer": "some response"}. Key berupa "status" dan "answer".
+Pada file main.go maka kalian wajib menyelesaikan dua handler yang tersedia, untuk endpoint `/upload` dan `/chat`. Keduanya akan menghasilkan output berupa JSON dengan struktur berikut: {"status": "success", "answer": "some response"}. Key berupa "status" dan "answer".
 
 Pada endpoint `/upload` maka kalian perlu melakukan proses upload dan analisa data. Jadi ada 2 proses di sini, bukan hanya melakukan upload. Jika berhasil maka akan menghasilkan output dalam bentuk `string`: `From the provided data, here are the Least Electricity: TV and the Most Electricity: EVCar.` Catatan: Output ini hanya contoh berdasarkan `data-series.csv` yang diberikan. Jika kalian membuat data sendiri maka jawabannya bisa jadi berbeda dan bukan `TV` dan/atau `EVCar`.
 
 Pada endpoint `/chat` maka kalian akan melakukan chat dengan model AI. Untuk model AI dibebaskan, untuk referensi, kalian bisa menggunakan `microsoft/Phi-3.5-mini-instruct`.
 
-* service/file_service.go
-Pada service ini, kalian akan mengisi kode untuk function `ProcessFile` dimana function menerima isi dari file dalam bentuk `string` untuk kemudian diproses menjadi `map of string`. Ingat struktur data mengikuti `model.go.`
+- service/file_service.go
+  Pada service ini, kalian akan mengisi kode untuk function `ProcessFile` dimana function menerima isi dari file dalam bentuk `string` untuk kemudian diproses menjadi `map of string`. Ingat struktur data mengikuti `model.go.`
 
-* service/ai_service.go
-Pada service ini, kalian akan mengisi kode untuk function `AnalyzeData` dan `ChatWithAI` dimana untuk `AnalyzeData` kalian akan berkomunikasi dengan AI model `tapas-base-finetuned-wtq`. Output-nya akan berupa teks jawaban dari AI model.
-Sedangkan untuk `ChatWithAI` maka kalian akan berkomunikasi dengan AI model Chat yang kalian pilih. Output-nya sama berupa teks jawaban dari AI model. Ingat struktur data mengikuti `model.go.`
+- service/ai_service.go
+  Pada service ini, kalian akan mengisi kode untuk function `AnalyzeData` dan `ChatWithAI` dimana untuk `AnalyzeData` kalian akan berkomunikasi dengan AI model `tapas-base-finetuned-wtq`. Output-nya akan berupa teks jawaban dari AI model.
+  Sedangkan untuk `ChatWithAI` maka kalian akan berkomunikasi dengan AI model Chat yang kalian pilih. Output-nya sama berupa teks jawaban dari AI model. Ingat struktur data mengikuti `model.go.`
 
 Silahkan membuat function-function lain yang kalian perlukan.
 
@@ -93,8 +94,8 @@ Silahkan membuat function-function lain yang kalian perlukan.
 **Expected Output / Behavior**:
 
 {
-    "Name": ["John", "Doe"],
-    "Age": ["30", "40"]
+"Name": ["John", "Doe"],
+"Age": ["30", "40"]
 }
 
 **Explanation**:
@@ -148,7 +149,6 @@ Fungsi ini harus mengembalikan error yang mengindikasikan bahwa CSV file gagal d
 **Explanation**:
 
 Fungsi ProcessFile menerima string dari file CSV sebagai input dan mengembalikan pesan error karena ada kolom yang tidak memiliki isi.
-
 
 #### Test Case 6 AnalyzeData berhasil
 
@@ -259,6 +259,5 @@ Fungsi ini harus mengembalikan error jika jawaban dari AI model bukan statusOK.
 **Explanation**:
 
 Fungsi AnalyzeData menerima context, query dan Huggingface Token sebagai input dan mengembalikan error karena AI model gagal memberikan respons
-
 
 Happy Coding!
